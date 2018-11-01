@@ -23,11 +23,11 @@ would look when using the `Result` class is shown below.
 
 ```java
 public class Main {
-	public Result<Payment> processPaymentFor(final String username) {
+    public Result<Payment> processPaymentFor(final String username) {
         return accountRepo.accountFrom(username)
             .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
             .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()));
-	}
+    }
 }
 ```
 
@@ -37,25 +37,25 @@ all the exceptions, then we can have this. But now we have pushed all that logic
 
 ```java
 public class Main {
-	public Payment processPaymentFor(final String username) {
-		Account account = accountRepo.accountFrom(username);
-		if(Objects.nonNull(account)) {
-			Invoice invoiceRepo.invoiceFor(account.accountId(), now());
-			if(Objects.nonNull(invoice)) {
-				return processor.processPayment(invoice.invoiceId, invoice.balance());
-			}
-			else {
-				throw new InvoiceNotFoundException();
-				// or 
-				// return Payment.empty()
-			}
-		}
-		else {
-			throw new AccountNotFoundException();
-			// or
-			// return Payment.empty()
-		}
-	}
+    public Payment processPaymentFor(final String username) {
+        Account account = accountRepo.accountFrom(username);
+        if(Objects.nonNull(account)) {
+            Invoice invoiceRepo.invoiceFor(account.accountId(), now());
+            if(Objects.nonNull(invoice)) {
+                return processor.processPayment(invoice.invoiceId, invoice.balance());
+            }
+            else {
+                throw new InvoiceNotFoundException();
+                // or 
+                // return Payment.empty()
+            }
+        }
+        else {
+            throw new AccountNotFoundException();
+            // or
+            // return Payment.empty()
+        }
+    }
 }
 ```
 When the account is not found or is `null`, then we need to either throw an exception, or return an empty
