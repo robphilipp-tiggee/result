@@ -7,15 +7,15 @@ The `Result` class provides a functional approach for managing results from call
 For example, given
 ```java
 public class MyUserRepo {
-	public Result<Account> accountFrom(final String username) { ... }
+    public Result<Account> accountFrom(final String username) { ... }
 }
 
 public class MyInvoiceRepo {
-	public Result<Invoice> invoiceFor(final long accountId, final LocalDate billingPeriodStart) { ... }
+    public Result<Invoice> invoiceFor(final long accountId, final LocalDate billingPeriodStart) { ... }
 }
 
 public class MyPaymentProcessor {
-	public Result<Payment> processPayment(final long invoiceId, final BigDecimal amount) { ... }
+    public Result<Payment> processPayment(final long invoiceId, final BigDecimal amount) { ... }
 }
 ```
 and our task is to process the payment for the user's account, for the balance in the invoice. How this
@@ -81,42 +81,42 @@ the function returns. In this way, in the above example, even if the account can
 The sample code below shows an example of a repository that returns a product based on a product ID.
 ```java
 public class MyOtherRepo {
-	public Result<Product> productFor(final long productId) {
-		try {
-			final ProductsDao dao = entityManager
-					.createQuery(
-							"select product from ProductsDao as product where product.id = :" + PRODUCT_ID,
-							ProductsDao.class
-					)
-					.setParameter(PRODUCT_ID, productId)
-					.getSingleResult();
-			
-			return Result.<Product>builder().success(convertToProduct(dao)).build();
-		}
-		catch(NoResultException e)
-		{
-			return Result.<Product>builder()
-					.notFound("Unable to find the product with the requested ID")
-					.addMessage("product_id", productId)
-					.addMessage("exception", e.getMessage())
-					.build();
-		}
-		catch(NonUniqueResultException e)
-		{
-			return Result.<Product>builder()
-					.indeterminant("More than one product with the requested ID exists (should never happen)")
-					.addMessage("product_id", productId)
-					.addMessage("exception", e.getMessage())
-					.build();
-		}
-		catch(PersistenceException e)
-		{
-			return Result.<Product>builder()
-					.failed("Unable to retrieve requested product")
-					.addMessage("product_id", productId)
-					.addMessage("exception", e.getMessage())
-					.build();
-		}
-	}
+    public Result<Product> productFor(final long productId) {
+        try {
+            final ProductsDao dao = entityManager
+                    .createQuery(
+                            "select product from ProductsDao as product where product.id = :" + PRODUCT_ID,
+                            ProductsDao.class
+                    )
+                    .setParameter(PRODUCT_ID, productId)
+                    .getSingleResult();
+            
+            return Result.<Product>builder().success(convertToProduct(dao)).build();
+        }
+        catch(NoResultException e)
+        {
+            return Result.<Product>builder()
+                    .notFound("Unable to find the product with the requested ID")
+                    .addMessage("product_id", productId)
+                    .addMessage("exception", e.getMessage())
+                    .build();
+        }
+        catch(NonUniqueResultException e)
+        {
+            return Result.<Product>builder()
+                    .indeterminant("More than one product with the requested ID exists (should never happen)")
+                    .addMessage("product_id", productId)
+                    .addMessage("exception", e.getMessage())
+                    .build();
+        }
+        catch(PersistenceException e)
+        {
+            return Result.<Product>builder()
+                    .failed("Unable to retrieve requested product")
+                    .addMessage("product_id", productId)
+                    .addMessage("exception", e.getMessage())
+                    .build();
+        }
+    }
 }
 ```
