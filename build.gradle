@@ -1,0 +1,103 @@
+buildscript {
+    repositories {
+        maven { url "http://repo1.maven.org/maven2" }
+        jcenter()
+        mavenLocal()
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'groovy'
+apply plugin: 'idea'
+apply plugin: 'maven-publish'
+
+def langLevel = 10
+sourceCompatibility = langLevel
+targetCompatibility = langLevel
+
+group 'com.tiggee.commons'
+def appName = 'commons'
+def appVersion = '0.2.3-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+publishing {
+    repositories {
+        maven {
+            url ""
+            credentials {
+                username = ""
+                password = ""
+            }
+            name = "sharedNexus"
+        }
+    }
+    publications {
+        mavenJava(MavenPublication) {
+            groupId group
+            artifactId appName
+            version  appVersion
+
+            from components.java
+
+            artifact sourceJar {
+                classifier "sources"
+            }
+
+            artifact javadocJar {
+                classifier "javadoc"
+            }
+        }
+    }
+}
+
+jar {
+    if( project.hasProperty( 'env' ) && project.properties[ 'env' ] == 'prod' ) {
+        println('**==----< Prod build >----==**')
+        archivesBaseName = baseName
+        println("base: ${archivesBaseName}")
+    }
+    else {
+        println('**==----< Dev build >----==**')
+        archivesBaseName = baseName + '-' + appVersion
+        println("base: ${archivesBaseName}")
+    }
+}
+
+configurations {
+    providedRuntime
+}
+
+dependencies {
+    // google guava dependencies
+    compile 'com.google.guava:guava:22.0'
+
+    // logging
+    compile 'org.slf4j:slf4j-api:1.7.25'
+
+    // type check annotations
+    compile 'edu.washington.cs.types.checker:checker-framework:1.7.5'
+
+//    compile( 'com.github.rholder:guava-retrying:2.0.0' ) {
+//        exclude group: 'com.google.guava', module: 'guava'
+//    }
+
+    // test dependencies
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.codehaus.groovy:groovy-all:2.4.11'
+    testCompile 'org.spockframework:spock-core:1.1-groovy-2.4'
+    testCompile 'org.mockito:mockito-core:2.8.9'
+}
+
