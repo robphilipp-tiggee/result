@@ -252,20 +252,33 @@ final Product product = productFor(314).orElseGet(result -> {
 });
 ```
 
-Sometimes, you may want to perform an action, only when the outcome succeeded, but keep the original `Result`.
+You may want to perform an action, only when the outcome succeeded, but keep the original `Result`.
 ```java
-// ...
 final Result<Product> result = productFor(314)
     .onSuccess(product -> LOGGER.info("Got my product; product ID: {}", product.productId()));
+// or
+productFor(314)
+    .ifSuccess(product -> LOGGER.info("Got my product; product ID: {}", product.productId()));
 ```
-Now the `result` is a reference to the `Result` returned from `productFor(314)`, and we logged the fact that the
-product was successfully retrieved.
+In the first case the `result` returned from the `onSuccess(...)` method is a reference to the 
+`Result` returned from `productFor(314)`, and we logged the fact that the product was successfully 
+retrieved. In the second case, the `ifSuccess(...)` method does not return anything, and the message 
+is only logged.
+
+You may also want to do something based on the result being a success, and the value of the result
+satisfying some condition.
+
+```java
+if(productFor(314).satisfies(value -> value > 100 * Math.PI)) { ... }
+```
+The `satisfies(...)` methods accepts a `Predicate` and returns the result of evaluating the result's
+value against the predicate.
 
 The `Result` class provides a number of methods for querying the results. Please see the java docs.
 
 ### chaining and transformations
 
-The power of the `Result` class comes from its ability to map, flat-map result, and chain results. 
+The power of the `Result` class comes from its ability to map, flat-map, and chain results. 
 The `Result` class is a monad that provides map and flat-ap (andThen) operations.
 
 Recall the earlier code snippet.
@@ -304,3 +317,68 @@ public class Main {
 ```
 In this case, we need to keep `account` in scope for the `map(...)` function, and then just simply
 map the payment value to the account value.
+
+#### transformations based on success
+
+Cases arise where the status of the result determines that transformation. The `Result` class provides
+a variant of the `andThen(...)` method that accepts two functions, the first is called when the status is
+a success, and the second is called when the status is **not** a success.
+
+```java
+public class Main {
+    public Result<Payment> processPaymentFor(final String username) {
+        return accountRepo.accountFrom(username)
+            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+            .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()))
+            .andThen(
+            		payment -> audit.log(payment).map(logged -> payment),       // payment succeeded
+            		result -> audit.logFailure(result).map(logged -> payment)   // payment failed
+            );
+    }
+}
+```
+
+In this case, if the payment was successfully processed, then it is logged. Otherwise, the failure is 
+logged. The above code snippet makes the assumption that the calls to log the payment or failure, 
+both return a `Result<T>`, and therefore we can map that result back to the required `Payment` object.
+
+#### transformation for success based on value
+
+Basing the transformation of a successful result on the value is also a common need. The `Result` class
+provides a four `meetsCondition(...)` methods for this use case. The `meetsCondition(...)` methods
+all have the same semantics, but differ on whether the arguments are suppliers or functions.
+
+The `meetsCondition(...)` methods are defined by `meetsCondition = f(predict, meetsPredicate, doesNotMeetPredicate): result`.
+The function takes a predicate that it applies against the value of the result, and then if the value
+meets the predicate, calls the `meetsPredicate` function (or supplier). If the value doesn't meet
+the predicate, then calls the `doesNotMeetPredicate` function (or supplier).
+
+```java
+public class Main {
+    public Result<Payment> processPaymentFor(final String username) {
+        return accountRepo.accountFrom(username)
+            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+            .meetsCondition(
+            		invoice -> invoice.balance() > 0,
+            		invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()),
+            		invoice -> Result.<Payment>builder().success(Payment.empty()).build()
+            );
+    }
+}
+```
+In the above example, if the invoice has no balance, then there is no need to process the payment,
+and instead, we can just return a success result wrapping an empty payment. The four variations are
+shown below and provide combinations of suppliers and functions.
+
+```java
+<R> Result<R> meetsCondition(Predicate<T> predicate, Supplier<Result<R>> predicateMet, Supplier<Result<R>> predicateNotMet) {...}
+<R> Result<R> meetsCondition(Predicate<T> predicate, Function<T, Result<R>> predicateMet, Function<T, Result<R>> predicateNotMet) {...}
+<R> Result<R> meetsCondition(Predicate<T> predicate, Supplier<Result<R>> predicateMet, Function<T, Result<R>> predicateNotMet) {...}
+<R> Result<R> meetsCondition(Predicate<T> predicate, Function<T, Result<R>> predicateMet, Supplier<Result<R>> predicateNotMet) {...}
+```
+
+### transactions
+
+The `Result` class provides a generalized mechanism for managing transaction boundaries across
+chained results. In this way, the transactions can span multiple data sources, and, for example,
+roll-backs can be tailored to the specifics of your code.
