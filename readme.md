@@ -33,7 +33,8 @@ public class Main {
 
 Without the `Result` class, you would need to check the result, catch exceptions, and wrap results
 into `if` statements. When assuming that the caller to `Main.processPaymentFor(...)` will handle
-all the exceptions, then we can have this. But now we have pushed all that logic up to the caller.
+all the exceptions, then we can have this. But now we have pushed all that error handling logic up 
+to the caller.
 
 ```java
 public class Main {
@@ -62,16 +63,16 @@ When the account is not found or is `null`, then we need to either throw an exce
 `Payment` object. Neither of these are ideal, and maintaining consistency throughout the code becomes
 cumbersome.
 
-What the `Result` class does is push the logic for handling exceptions down to the method that are the 
+What the `Result` class does is push the logic for handling exceptions down to the methods that are the 
 source of the exceptional conditions. For example, when accessing a database, the repository method
-catches all the database exceptions, and creates `Result` objects that wrap the results. The logic
-for handling the exceptions is no where it should be, and the caller only needs to worry about success;
-failures can be passed on, letting upstream code now that what it called failed.
+catches all the database exceptions, and creates a `Result` object that wraps the result. The logic
+for handling the exceptions is now where it should be, and the caller only needs to worry about success;
+failures can be passed on, letting upstream code now that the call resulted in a failure.
 
 In the `Result` example above, the call to `accountFrom(username)` returns a `Result<Account>`. When
-an account was successfully found for the username, then that account is wrapped in the result. On
-the other hand, if the account was not found, or if there was a database issue, or if more than one
-account was returned, then the result wraps the failure.
+an account is successfully found for the username, then that account is wrapped in the result. On
+the other hand, if the account is not found, or if there is a database issue, or if more than one
+account is returned, then the result wraps the failure.
 
 The `result.andThen(...)` method only executes the function specified in the argument if the result
 on which it is being called is a success. Otherwise, it's type is mapped to match the same type that
@@ -287,7 +288,7 @@ Suppose the call to `accountFrom(...)` failed because the username didn't exist.
 the `invoiceFor(...)` method nor the `processPayment(...)` would be called. Rather, they would be 
 short-circuited, and a failure `Result<Payment>` would be returned.
 
-The result values can also be mapped. For example, suppose in the code snippet above, you would like
+The result values can also be mapped. For a contrived example, suppose in the code snippet above, you would like
 to return `Result<Account>` rather than the `Result<Payment>`. The code snippet below shows how.
 
 ```java
