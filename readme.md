@@ -254,11 +254,52 @@ final Product product = productFor(314).orElseGet(result -> {
 Sometimes, you may want to perform an action, only when the outcome succeeded, but keep the original `Result`.
 ```java
 // ...
-final Result<Product> result = productFor(314).onSuccess(product -> LOGGER.info("Got my product; product ID: {}", product.productId()));
+final Result<Product> result = productFor(314)
+    .onSuccess(product -> LOGGER.info("Got my product; product ID: {}", product.productId()));
 ```
 Now the `result` is a reference to the `Result` returned from `productFor(314)`, and we logged the fact that the
 product was successfully retrieved.
 
 The `Result` class provides a number of methods for querying the results. Please see the java docs.
 
-As a monad, the `Result` class provides map and flatMap (andThen) functions.
+### chaining and transformations
+
+The power of the `Result` class comes from its ability to map, flat-map result, and chain results. 
+The `Result` class is a monad that provides map and flat-ap (andThen) operations.
+
+Recall the earlier code snippet.
+```java
+public class Main {
+    public Result<Payment> processPaymentFor(final String username) {
+        return accountRepo.accountFrom(username)
+            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+            .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()));
+    }
+}
+```
+Here we get a `Result<Account>` from the `accountFrom(...)` method. We then do a flat-map operation
+on the `Result<Invoice>` returned from the `invoiceFor(...)` method, which results in a `Result<Invoice>`.
+And then, we do another flat-map operation on the `Result<Payment>` returned from the `processPayment(...)`
+method, which ultimately returns a `Result<Payment>`. If any of the steps fail, the final `Result<Payment>`
+represents a failure, but no matter which result failed, a `Result<Payment>` is **always** returned.
+
+Suppose the call to `accountFrom(...)` failed because the username didn't exist. In this case, neither
+the `invoiceFor(...)` method nor the `processPayment(...)` would be called. Rather, they would be 
+short-circuited, and a failure `Result<Payment>` would be returned.
+
+The result values can also be mapped. For example, suppose in the code snippet above, you would like
+to return `Result<Account>` rather than the `Result<Payment>`. The code snippet below shows how.
+
+```java
+public class Main {
+    public Result<Account> processPaymentFor(final String username) {
+        return accountRepo.accountFrom(username)
+            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now())
+                .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()))
+                .map(payment -> account)
+            );
+    }
+}
+```
+In this case, we need to keep `account` in scope for the `map(...)` function, and then just simply
+map the payment value to the account value.
