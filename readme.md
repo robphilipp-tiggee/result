@@ -361,7 +361,7 @@ public class Main {
             .meetsCondition(
                     invoice -> invoice.balance() > 0,
                     invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()),
-                    invoice -> Result.<Payment>builder().success(Payment.empty()).build()
+                    () -> Result.<Payment>builder().success(Payment.empty()).build()
             );
     }
 }
@@ -371,29 +371,107 @@ and instead, we can just return a success result wrapping an empty payment. The 
 shown below and provide combinations of suppliers and functions.
 
 ```java
-<R> Result<R> meetsCondition(
+Result<R> meetsCondition(
 		Predicate<T> predicate, 
 		Supplier<Result<R>> predicateMet, 
 		Supplier<Result<R>> predicateNotMet) {...}
 		
-<R> Result<R> meetsCondition(
+Result<R> meetsCondition(
 		Predicate<T> predicate, 
 		Function<T, Result<R>> predicateMet, 
 		Function<T, Result<R>> predicateNotMet) {...}
 		
-<R> Result<R> meetsCondition(
+Result<R> meetsCondition(
 		Predicate<T> predicate, 
 		Supplier<Result<R>> predicateMet, 
 		Function<T, Result<R>> predicateNotMet) {...}
 		
-<R> Result<R> meetsCondition(
+Result<R> meetsCondition(
 		Predicate<T> predicate, 
 		Function<T, Result<R>> predicateMet, 
 		Supplier<Result<R>> predicateNotMet) {...}
 ```
+Note that in the above code snippet, `T` is the type of the result's value, and `R` is the type
+of the value that is returned by the `meetsCondition(...)` method. In the example code snippet
+the `meetsCondition(...)` method has a `Predicate<Invoice>` as the predicate, which checks to
+see if a balance is due on the invoice. It has a `Function<Invoice, Result<Payment>>` that is
+called if there is a balance on the invoice. And It has a `Supplier<Result<Payment>>` that is 
+called when there is no balance on the invoice.
 
 ### transactions
 
 The `Result` class provides a generalized mechanism for managing transaction boundaries across
 chained results. In this way, the transactions can span multiple data sources, and, for example,
 roll-backs can be tailored to the specifics of your code.
+
+There are two `transaction(...)` methods, which are essentially them same, exception that one has 
+takes a predicate that determines whether the call should be transactional. The following code
+snippet shows the two functions.
+```java
+public class Result<T> {
+    public <V> Result<V> transaction(Supplier<Result<V>> boundedFunction,
+                                     Function<T, Result<Boolean>> commitFunction,
+                                     Function<T, Result<Boolean>> rollbackFunction) {...}
+
+    public <V> Result<V> transaction(Predicate<T> transactional,
+                                     Supplier<Result<V>> boundedFunction,
+                                     Function<T, Result<Boolean>> commitFunction,
+                                     Function<T, Result<Boolean>> rollbackFunction) {...}
+}
+```
+The first `transaction(...)` method accepts a bounded function that supplies a result with a value of
+type `V`. It then accepts two functions: 
+1. a commit function that is called when the bounded function returns a success, and
+2. a roll-back function that is called when the bounded function returns a failure.
+
+The bounded function defines the transaction boundary. Consider
+```java
+public class Main { 
+	public Result<Payment> processPaymentFor(final String username) { 
+    	return Transaction.newInstance(31415, true) 
+    	    .transaction(
+    	    		() -> accountRepo.accountFrom(username)
+    	    		        .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+                            .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance())),
+            		Transaction::commit,
+            		Transaction::rollback
+            );
+    }
+}
+```
+where a mock `Transaction` class is defined below (generally you can use Spring's transactions, or create ones for,
+say Cassandra that provide compensating queries for the rollback).
+
+```java
+public class Transaction {
+    private final boolean isNewTransaction;
+    private final String transactionId;
+
+    private Transaction(final String id, final boolean isNew) {
+        this.transactionId = id;
+        this.isNewTransaction = isNew;
+    }
+    
+    public static Result<Transaction> newInstance(final String id, final boolean isNew) {
+    	return Result.<Transaction>builder().success(new Transaction(id, isNew)).build();
+    }
+
+    public boolean isNew() {
+        return isNewTransaction;
+    }
+
+    public Result<Boolean> commit() {
+        return Result.<Boolean> builder().success(true).build();
+    }
+
+    public Result<Boolean> rollback(final boolean willSucceed) {
+        return Result.<Boolean> builder().success(true).build();
+    }
+}
+```
+In the code example, if all the operations are successful, the `commit()` function is called, otherwise,
+the `rollback()` function is called. These functions can be more complex functions, as needed. 
+
+To use Spring's transactions, you'll need to create a simple transaction factory that interacts 
+with Spring's `PlatformTransactionManager`. The `commit(TransactionStatus status)` function would then call the 
+`PlatformTransactionManager.commit(TransactionStatus status)` method, and then create a `Result` to return.
