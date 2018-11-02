@@ -331,8 +331,8 @@ public class Main {
             .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
             .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()))
             .andThen(
-            		payment -> audit.log(payment).map(logged -> payment),       // payment succeeded
-            		result -> audit.logFailure(result).map(logged -> payment)   // payment failed
+                    payment -> audit.log(payment).map(logged -> payment),       // payment succeeded
+                    result -> audit.logFailure(result).map(logged -> payment)   // payment failed
             );
     }
 }
@@ -427,14 +427,14 @@ type `V`. It then accepts two functions:
 The bounded function defines the transaction boundary. Consider
 ```java
 public class Main { 
-	public Result<Payment> processPaymentFor(final String username) { 
-    	return Transaction.newInstance(31415, true) 
-    	    .transaction(
-    	    		() -> accountRepo.accountFrom(username)
-    	    		        .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+    public Result<Payment> processPaymentFor(final String username) { 
+        return Transaction.newInstance(31415, true) 
+            .transaction(
+                    () -> accountRepo.accountFrom(username)
+                            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
                             .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance())),
-            		Transaction::commit,
-            		Transaction::rollback
+                    Transaction::commit,
+                    Transaction::rollback
             );
     }
 }
@@ -453,7 +453,7 @@ public class Transaction {
     }
     
     public static Result<Transaction> newInstance(final String id, final boolean isNew) {
-    	return Result.<Transaction>builder().success(new Transaction(id, isNew)).build();
+        return Result.<Transaction>builder().success(new Transaction(id, isNew)).build();
     }
 
     public boolean isNew() {
