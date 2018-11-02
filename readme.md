@@ -475,3 +475,22 @@ the `rollback()` function is called. These functions can be more complex functio
 To use Spring's transactions, you'll need to create a simple transaction factory that interacts 
 with Spring's `PlatformTransactionManager`. The `commit(TransactionStatus status)` function would then call the 
 `PlatformTransactionManager.commit(TransactionStatus status)` method, and then create a `Result` to return.
+Our example, would be
+```java
+public class Main { 
+    public Result<Payment> processPaymentFor(final String username) { 
+        return transactionFactory.newOrExistingTransaction("process-payment") 
+            .transaction(
+                    TransactionStatus::isNewTransaction,
+                    () -> accountRepo.accountFrom(username)
+                            .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
+                            .andThen(invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance())),
+                    transactionFactory::commit,
+                    transactionFactory::rollback
+            );
+    }
+}
+```
+where the `transactionFactory.newOrExistingTransaction(...)` returns Spring's `TransactionStatus`, and that
+`TransactionStatus` is passed to the `transactionFactory.commit(TransactionStatus status)` and 
+`transactionFactory.rollback(TransactionStatus status)` methods. 
