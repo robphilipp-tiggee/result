@@ -93,24 +93,21 @@ public class MyOtherRepo {
             
             return Result.<Product>builder().success(convertToProduct(dao)).build();
         }
-        catch(NoResultException e)
-        {
+        catch(NoResultException e) {
             return Result.<Product>builder()
                     .notFound("Unable to find the product with the requested ID")
                     .addMessage("product_id", productId)
                     .addMessage("exception", e.getMessage())
                     .build();
         }
-        catch(NonUniqueResultException e)
-        {
+        catch(NonUniqueResultException e) {
             return Result.<Product>builder()
                     .indeterminant("More than one product with the requested ID exists (should never happen)")
                     .addMessage("product_id", productId)
                     .addMessage("exception", e.getMessage())
                     .build();
         }
-        catch(PersistenceException e)
-        {
+        catch(PersistenceException e) {
             return Result.<Product>builder()
                     .failed("Unable to retrieve requested product")
                     .addMessage("product_id", productId)
@@ -122,3 +119,146 @@ public class MyOtherRepo {
 ```
 
 ## usage
+
+In the next sections we describe how to use `Result`. Broadly speaking, to use a result, you
+will need to know how to 
+1.  construct the result, 
+2.  query the result for status, values, and messages
+3.  transform results
+4.  chain results
+5.  create and manage transactional boundaries
+
+### anatomy
+
+A `Result` has three parts.
+1.  `status` - the status can be success, failed, bad request, indeterminant, not found, connection failed.
+2.  `value` - the value wrapped by the `Result`
+3.  `messages` - messages describing the outcome of the result
+
+And there are some rules
+1.  Every success `Result` must have a value.
+2.  Every non-success `Result` must have an `error` message.
+
+And there are some basic conventions
+1.  **Unsuccessful outcomes do not have a value**. 
+    When an outcome fails, the action does not result in a value. Therefore, unsuccessful `Result`s
+    do not have a value.
+2.  **Messages are not intended to hold the outcome of a success**.
+    Messages should merely be informational. The outcome of a successful action should be
+    encapsulated in the `Result` value. A successful outcome, may be enhanced by some 
+    informational messages.
+3.  **Unsuccessful outcomes should be explained**.
+    When an action fails, the `Result` should have messages explaining the failure and provide
+    relevant state information to help understand the failure.
+
+### construction
+
+The `Result` is constructed with using a builder that helps manage the rules and conventions listed
+in the previous section. To construct a `Result` describing an action's successful outcome, we can
+use the builder's `success(...)` method. The following example shows how to create a `Result` that
+wraps a `Product`, and represents the successful outcome of, say, retrieving a product from some
+data store.
+
+```java
+final Product desiredProduct = ...;
+final Result<Product> result = Result.<Product>builder().success(desiredProduct).build();
+```
+Notice that the `success(...)` method expects a `Product`. Generally, the generic type, `T`, of the
+`Result<T>` is the argument required by the `success(final T value)` method.
+
+Suppose the desired product was not found in our data store. In this case, we can represent
+this in one of two ways. We can treat this as a failure, or as a not-found.
+
+```java
+final Product desiredProduct = ...;     // not found
+final Result<Product> failed = Result.<Product>builder()
+    .failed("Product not found")
+    .addMessage("product_id", productId)
+    .build();
+// or
+final Result<Product> notFound = Result.<Product>builder()
+    .notFound("Product not found")
+    .addMessage("product_id", productId)
+    .build();
+```
+In both cases, the `Result` represents the fact that the outcome was not successful. The only
+difference in the above two `Result`s is the status: in the first case it will be `Result.Status.FAILED`
+and in the second case it will be `Result.Status.NOT_FOUND`.
+ 
+### querying
+
+When a method call returns a `Result`, we need to be able to query that result to determine whether
+the outcome was a success, and if so, get the value. Or, if the outcome failed, what type of failure
+and why did it fail.
+
+Recall the `MyOtherProduct.productFor(final long productId)` method from earlier. This method returns
+a `Result<Product>`, and specifically, captures four possible outcomes.
+1.  `success` - When the product is found based on its product ID, then returns the `Product`.
+2.  `not found` - When no product is found with the specified product ID, then returns the status
+    `Result.Status.NOT_FOUND` and three messages: the required `error` message; the requested product ID;
+    and, the message from the caught exception.
+3.  `indeterminant` - When more than one product is found with the "unique" ID, then returns the
+    status `Result.Status.INDETERMINANT` and three messages: the required `error` message; the
+    request product ID; and, the message from the caught exception.
+4.  `failed` - When there is a persistence exception other than the two preceding it, then returns the
+    status `Result.Status.FAILED` and, again, three messages: the required `error` message; the
+    request product ID; and, the message from the caught exception. In this case, the exception message
+    may supply us with relevant information. For example, maybe we couldn't connect to the database,
+    or was the SQL invalid, etc.
+    
+The most basic way to determine the status of a `Result` is the `status()` method. For example, suppose
+we have a method that returns a `Result<Product>` based on a specified product ID.
+
+```java
+public Result<Product> productFor(final long productId) {}
+    final Product desiredProduct = ...;
+    return Result.<Product>builder().success(desiredProduct).build();
+}
+```
+Then we can call that method and query the outcome status.
+```java
+// ...
+final Result<Product> result = productFor(314);
+if(result.status() == Result.Status.SUCCESS) {
+    // do something
+}
+else {
+    // do something else
+}
+```
+Alternatively, you could call the `isSuccess()` method which requires that a value has been set.
+```java
+// ...
+final Result<Product> result = productFor(314);
+if(result.isSuccess()) {
+    // do something
+}
+else {
+    // do something else
+}
+```
+
+In many cases, we want the value when successful, or some default value when it failed.
+
+```java
+final Product product = productFor(314).orElse(Product.empty());
+// or
+final Product product = productFor(314).orElseGet(() -> Product.empty());
+// or
+final Product product = productFor(314).orElseGet(result -> {
+    LOGGER.warn("Product not found; messages: {}", result.messages());
+    return Product.empty();
+});
+```
+
+Sometimes, you may want to perform an action, only when the outcome succeeded, but keep the original `Result`.
+```java
+// ...
+final Result<Product> result = productFor(314).onSuccess(product -> LOGGER.info("Got my product; product ID: {}", product.productId()));
+```
+Now the `result` is a reference to the `Result` returned from `productFor(314)`, and we logged the fact that the
+product was successfully retrieved.
+
+The `Result` class provides a number of methods for querying the results. Please see the java docs.
+
+As a monad, the `Result` class provides map and flatMap (andThen) functions.
