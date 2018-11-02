@@ -359,9 +359,9 @@ public class Main {
         return accountRepo.accountFrom(username)
             .andThen(account -> invoiceRepo.invoiceFor(account.accountId(), now()))
             .meetsCondition(
-            		invoice -> invoice.balance() > 0,
-            		invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()),
-            		invoice -> Result.<Payment>builder().success(Payment.empty()).build()
+                    invoice -> invoice.balance() > 0,
+                    invoice -> processor.processPayment(invoice.invoiceId(), invoice.balance()),
+                    invoice -> Result.<Payment>builder().success(Payment.empty()).build()
             );
     }
 }
@@ -371,10 +371,25 @@ and instead, we can just return a success result wrapping an empty payment. The 
 shown below and provide combinations of suppliers and functions.
 
 ```java
-<R> Result<R> meetsCondition(Predicate<T> predicate, Supplier<Result<R>> predicateMet, Supplier<Result<R>> predicateNotMet) {...}
-<R> Result<R> meetsCondition(Predicate<T> predicate, Function<T, Result<R>> predicateMet, Function<T, Result<R>> predicateNotMet) {...}
-<R> Result<R> meetsCondition(Predicate<T> predicate, Supplier<Result<R>> predicateMet, Function<T, Result<R>> predicateNotMet) {...}
-<R> Result<R> meetsCondition(Predicate<T> predicate, Function<T, Result<R>> predicateMet, Supplier<Result<R>> predicateNotMet) {...}
+<R> Result<R> meetsCondition(
+		Predicate<T> predicate, 
+		Supplier<Result<R>> predicateMet, 
+		Supplier<Result<R>> predicateNotMet) {...}
+		
+<R> Result<R> meetsCondition(
+		Predicate<T> predicate, 
+		Function<T, Result<R>> predicateMet, 
+		Function<T, Result<R>> predicateNotMet) {...}
+		
+<R> Result<R> meetsCondition(
+		Predicate<T> predicate, 
+		Supplier<Result<R>> predicateMet, 
+		Function<T, Result<R>> predicateNotMet) {...}
+		
+<R> Result<R> meetsCondition(
+		Predicate<T> predicate, 
+		Function<T, Result<R>> predicateMet, 
+		Supplier<Result<R>> predicateNotMet) {...}
 ```
 
 ### transactions
