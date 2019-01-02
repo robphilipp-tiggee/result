@@ -1,30 +1,24 @@
-buildscript {
-    repositories {
-        maven { url "http://repo1.maven.org/maven2" }
-        jcenter()
-        mavenLocal()
-    }
-}
-
 apply plugin: 'java'
 apply plugin: 'groovy'
 apply plugin: 'idea'
-apply plugin: 'maven-publish'
+apply plugin: 'maven'
+apply plugin: 'signing'
 
 def langLevel = 10
 sourceCompatibility = langLevel
 targetCompatibility = langLevel
-
-group 'com.tiggee.commons'
-def appName = 'commons'
-def appVersion = '0.2.3-SNAPSHOT'
 
 repositories {
     mavenCentral()
     mavenLocal()
 }
 
+group 'com.tiggee.commons'
+def appName = 'result'
+def appVersion = '0.1.0'
+
 task sourceJar(type: Jar) {
+    classifier = "sources"
     from sourceSets.main.allJava
 }
 
@@ -33,31 +27,71 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
 }
 
-publishing {
-    repositories {
-        maven {
-            url ""
-            credentials {
-                username = ""
-                password = ""
-            }
-            name = "sharedNexus"
-        }
+artifacts {
+    archives jar
+    archives sourceJar
+    archives javadocJar
+}
+
+
+if(hasProperty('sonatypeUsername')) {
+    signing {
+        sign configurations.archives
     }
-    publications {
-        mavenJava(MavenPublication) {
-            groupId group
-            artifactId appName
-            version  appVersion
 
-            from components.java
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
-            artifact sourceJar {
-                classifier "sources"
-            }
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: sonatypeUsername, password: sonatypePassword)
+                }
 
-            artifact javadocJar {
-                classifier "javadoc"
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: sonatypeUsername, password: sonatypePassword)
+                }
+
+                pom.project {
+                    name appName
+                    artifactId appName
+                    packaging 'jar'
+                    version = appVersion
+                    // optionally artifactId can be defined here
+                    description 'A functional approach for managing results from calls that may fail'
+                    url 'https://github.com/tiggee-tech/result'
+
+                    licenses {
+                        license {
+                            name = 'MIT License'
+                            url = 'https://github.com/tiggee-tech/result/LICENSE'
+                        }
+                    }
+
+                    organization {
+                        name = 'com.tiggee.commons'
+                        url = 'https://github.com/tiggee-tech'
+                    }
+
+                    developers {
+                        developer {
+                            id = "robphilipp-tiggee"
+                            name = "Rob Philipp"
+                            email = "rphilipp@tiggee.com"
+                        }
+                    }
+
+                    scm {
+                        connection = 'scm:git:git://github.com/tiggee-tech/result.git'
+                        developerConnection = 'scm:git:ssh://git@github.com:tiggee-tech/result.git'
+                        url = 'https://github.com/tiggee-tech/result'
+                    }
+
+                    issueManagement {
+                        system = 'GitHub'
+                        url = 'https://github.com/tiggee-tech/result/issues'
+                    }
+                }
             }
         }
     }
@@ -66,18 +100,25 @@ publishing {
 jar {
     if( project.hasProperty( 'env' ) && project.properties[ 'env' ] == 'prod' ) {
         println('**==----< Prod build >----==**')
-        archivesBaseName = baseName
+        archivesBaseName = appName
         println("base: ${archivesBaseName}")
     }
     else {
         println('**==----< Dev build >----==**')
-        archivesBaseName = baseName + '-' + appVersion
+        archivesBaseName = appName + '-' + appVersion
         println("base: ${archivesBaseName}")
     }
 }
 
 configurations {
     providedRuntime
+}
+
+test {
+    useJUnit()
+
+    // show standard out and standard error of the test JVM(s) on the console
+    testLogging.showStandardStreams = true
 }
 
 dependencies {
@@ -89,10 +130,6 @@ dependencies {
 
     // type check annotations
     compile 'edu.washington.cs.types.checker:checker-framework:1.7.5'
-
-//    compile( 'com.github.rholder:guava-retrying:2.0.0' ) {
-//        exclude group: 'com.google.guava', module: 'guava'
-//    }
 
     // test dependencies
     testCompile 'junit:junit:4.12'

@@ -110,29 +110,6 @@ public class Result<T> {
 	}
 
 	/**
-	 * Calls the specified function and wraps the mapped value into this result. If the call to the function throws an
-	 * exception, then returns a failure result
-	 * @param value The value to pass into the specified function
-	 * @param function The specified function
-	 * @param <R> The type parameter of the value held in the returned result
-	 * @return A result that is a copy of this result, except that it has the mapped value, or an empty value if the specified
-	 * function throws an exception
-	 */
-	private <R> Result<R> callFunction(final T value, final Function<T, R> function) {
-		try {
-			final R returnedValue = function.apply(value);
-			return Result.<R>builder().success(returnedValue).addMessages(messages).build();
-		}
-		catch(Throwable e) {
-			return Result.<R>builder()
-					.withStatus(status())
-					.addMessage("exception", e.getMessage())
-					.addMessages(messages())
-					.build();
-		}
-	}
-
-	/**
 	 * Allows a list of inputs to be handed to a function, that returns a {@link Result}, and have all those results
 	 * combined into a single result. If all the function calls succeed, then the returned result is a success. If any
 	 * of the function calls return a failure, then processing of the input stops, and the overall result is a failure.
@@ -454,52 +431,6 @@ public class Result<T> {
 	}
 
 	/**
-	 * Handles the transaction failure by attempting to rollback
-	 * @param result The result of the transaction-bounded operation
-	 * @param rollbackFunction the rollback function
-	 * @param transaction The transaction
-	 * @param exceptionMessage The exception that occurred when attempting to call the transaction-bounded function,
-	 * commit, or rollback the transaction
-	 * @param <V> The result type
-	 * @return The result of handling the failed transaction or a failure
-	 */
-	private <V> Result<V> handleTransactionException(final Result<V> result,
-													 final Function<T, Result<Boolean>> rollbackFunction,
-													 final T transaction,
-													 final String exceptionMessage) {
-		// at this point the function has to be transactional (i.e. the owner of the transaction) because
-		// otherwise the result would have been returned without attempting to commit or roll back.
-		// attempt to roll back
-		String message = "";
-		try {
-			if(result == null) {
-				message = "Exception thrown in supplied transaction-bounded function";
-			}
-			else {
-				message = "Exception thrown when attempting to " +
-						(result.isSuccess() ? "commit" : "rollback") +
-						" the transaction";
-			}
-			final String message2 = message;
-			return rollbackFunction.apply(transaction)
-					.andThen(failure -> Result.<V>builder()
-							.failed(message2)
-							.addMessage("exception", exceptionMessage)
-							.build()
-					);
-		}
-		catch(Throwable e2) {
-			return Result.<V>builder()
-					.failed(message + ", and then again on the final rollback")
-					.addMessage("exception", e2.getMessage())
-					.addMessage("original_exception", exceptionMessage)
-					.build();
-		}
-
-	}
-
-
-	/**
 	 * Calls the specified supplier if the result does not have a value
 	 * @param supplier The supplier that returns the failed event
 	 * @return the result from the supplier if this result is not a success
@@ -532,7 +463,8 @@ public class Result<T> {
 	}
 
 	/**
-	 * When the this result is a success and the specified predicate
+	 * Transforms the value of this result when this result is a success using the specified predicate
+	 * to determine which transformation to call.
 	 * @param predicate The predicate the determines whether to call the function
 	 * @param predicateMet The function to call if the result is a success and the predicate evaluates to true
 	 * @param predicateNotMet The supplier of the failure result when the predicate was not met
@@ -559,7 +491,8 @@ public class Result<T> {
 	}
 
 	/**
-	 * When the this result is a success and the specified predicate
+	 * Transforms the value of this result when this result is a success using the specified predicate
+	 * to determine which transformation to call.
 	 * @param predicate The predicate the determines whether to call the function
 	 * @param predicateMet The function to call if the result is a success and the predicate evaluates to true
 	 * @param predicateNotMet The supplier of the failure result when the predicate was not met
@@ -586,7 +519,8 @@ public class Result<T> {
 	}
 
 	/**
-	 * When the this result is a success and the specified predicate
+	 * Transforms the value of this result when this result is a success using the specified predicate
+	 * to determine which transformation to call.
 	 * @param predicate The predicate the determines whether to call the function
 	 * @param predicateMet The function to call if the result is a success and the predicate evaluates to true
 	 * @param predicateNotMet The supplier of the failure result when the predicate was not met
@@ -613,7 +547,8 @@ public class Result<T> {
 	}
 
 	/**
-	 * When the this result is a success and the specified predicate
+	 * Transforms the value of this result when this result is a success using the specified predicate
+	 * to determine which transformation to call.
 	 * @param predicate The predicate the determines whether to call the function
 	 * @param predicateMet The function to call if the result is a success and the predicate evaluates to true
 	 * @param predicateNotMet The supplier of the failure result when the predicate was not met
@@ -755,6 +690,30 @@ public class Result<T> {
 		return value().orElseThrow(() -> exceptionSupplier.apply(this));
 	}
 
+
+	/**
+	 * Calls the specified function and wraps the mapped value into this result. If the call to the function throws an
+	 * exception, then returns a failure result
+	 * @param value The value to pass into the specified function
+	 * @param function The specified function
+	 * @param <R> The type parameter of the value held in the returned result
+	 * @return A result that is a copy of this result, except that it has the mapped value, or an empty value if the specified
+	 * function throws an exception
+	 */
+	private <R> Result<R> callFunction(final T value, final Function<T, R> function) {
+		try {
+			final R returnedValue = function.apply(value);
+			return Result.<R>builder().success(returnedValue).addMessages(messages).build();
+		}
+		catch(Throwable e) {
+			return Result.<R>builder()
+					.withStatus(status())
+					.addMessage("exception", e.getMessage())
+					.addMessages(messages())
+					.build();
+		}
+	}
+
 	/**
 	 * Wraps the function call in a try/catch to ensure that the function call doesn't leak an exception. In the event
 	 * that the function call throws an exception, then returns a failure result with the exception message
@@ -795,6 +754,51 @@ public class Result<T> {
 					.addMessage("exception", e.getMessage())
 					.build();
 		}
+	}
+
+	/**
+	 * Handles the transaction failure by attempting to rollback
+	 * @param result The result of the transaction-bounded operation
+	 * @param rollbackFunction the rollback function
+	 * @param transaction The transaction
+	 * @param exceptionMessage The exception that occurred when attempting to call the transaction-bounded function,
+	 * commit, or rollback the transaction
+	 * @param <V> The result type
+	 * @return The result of handling the failed transaction or a failure
+	 */
+	private <V> Result<V> handleTransactionException(final Result<V> result,
+													 final Function<T, Result<Boolean>> rollbackFunction,
+													 final T transaction,
+													 final String exceptionMessage) {
+		// at this point the function has to be transactional (i.e. the owner of the transaction) because
+		// otherwise the result would have been returned without attempting to commit or roll back.
+		// attempt to roll back
+		String message = "";
+		try {
+			if(result == null) {
+				message = "Exception thrown in supplied transaction-bounded function";
+			}
+			else {
+				message = "Exception thrown when attempting to " +
+						(result.isSuccess() ? "commit" : "rollback") +
+						" the transaction";
+			}
+			final String message2 = message;
+			return rollbackFunction.apply(transaction)
+					.andThen(failure -> Result.<V>builder()
+							.failed(message2)
+							.addMessage("exception", exceptionMessage)
+							.build()
+					);
+		}
+		catch(Throwable e2) {
+			return Result.<V>builder()
+					.failed(message + ", and then again on the final rollback")
+					.addMessage("exception", e2.getMessage())
+					.addMessage("original_exception", exceptionMessage)
+					.build();
+		}
+
 	}
 
 	/**
