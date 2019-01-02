@@ -15,7 +15,7 @@ repositories {
 
 group 'com.tiggee.commons'
 def appName = 'result'
-def appVersion = '0.1.0'
+def appVersion = '0.1.1-snapshot'
 
 task sourceJar(type: Jar) {
     classifier = "sources"
