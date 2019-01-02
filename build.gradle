@@ -1,15 +1,7 @@
-//buildscript {
-//    repositories {
-//        maven { url "http://repo1.maven.org/maven2" }
-//        jcenter()
-//        mavenLocal()
-//    }
-//}
-
 apply plugin: 'java'
 apply plugin: 'groovy'
 apply plugin: 'idea'
-apply plugin: 'maven-publish'
+apply plugin: 'maven'
 apply plugin: 'signing'
 
 def langLevel = 10
@@ -23,7 +15,7 @@ repositories {
 
 group 'com.tiggee.commons'
 def appName = 'result'
-def appVersion = '0.1.0-snapshot'
+def appVersion = '0.1.0'
 
 task sourceJar(type: Jar) {
     classifier = "sources"
@@ -47,23 +39,40 @@ if(hasProperty('sonatypeUsername')) {
         sign configurations.archives
     }
 
-    publishing {
-        publications {
-            hashedWheelTimer(MavenPublication) {
-                pom {
-                    name = 'result'
-                    description = 'A functional approach for managing results from calls that may fail'
-                    url = 'https://github.com/tiggee-tech/result'
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: sonatypeUsername, password: sonatypePassword)
+                }
+
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: sonatypeUsername, password: sonatypePassword)
+                }
+
+                pom.project {
+                    name appName
+                    artifactId appName
+                    packaging 'jar'
+                    version = appVersion
+                    // optionally artifactId can be defined here
+                    description 'A functional approach for managing results from calls that may fail'
+                    url 'https://github.com/tiggee-tech/result'
+
                     licenses {
                         license {
                             name = 'MIT License'
                             url = 'https://github.com/tiggee-tech/result/LICENSE'
                         }
                     }
+
                     organization {
-                        name = 'com.tiggee'
+                        name = 'com.tiggee.commons'
                         url = 'https://github.com/tiggee-tech'
                     }
+
                     developers {
                         developer {
                             id = "robphilipp-tiggee"
@@ -71,58 +80,17 @@ if(hasProperty('sonatypeUsername')) {
                             email = "rphilipp@tiggee.com"
                         }
                     }
+
                     scm {
                         connection = 'scm:git:git://github.com/tiggee-tech/result.git'
                         developerConnection = 'scm:git:ssh://git@github.com:tiggee-tech/result.git'
                         url = 'https://github.com/tiggee-tech/result'
                     }
+
                     issueManagement {
                         system = 'GitHub'
                         url = 'https://github.com/tiggee-tech/result/issues'
                     }
-                }
-                groupId = group
-                artifactId = appName
-                version = appVersion
-
-                from components.java
-
-                // create the sign pom artifact
-                pom.withXml {
-                    def pomFile = file("${project.buildDir}/generated-pom.xml")
-                    writeTo(pomFile)
-                    def pomAscFile = signing.sign(pomFile).signatureFiles[0]
-                    artifact(pomAscFile) {
-                        classifier = null
-                        extension = 'pom.asc'
-                    }
-                }
-
-                artifact sourceJar
-
-                artifact javadocJar
-
-                // create the signed artifacts
-                project.tasks.signArchives.signatureFiles.each {
-                    artifact(it) {
-                        def matcher = it.file =~ /-(sources|javadoc)\.jar\.asc$/
-                        if (matcher.find()) {
-                            classifier = matcher.group(1)
-                        } else {
-                            classifier = null
-                        }
-                        extension = 'jar.asc'
-                    }
-                }
-            }
-        }
-        repositories {
-            maven {
-                name = "nexus"
-                url = "https://oss.sonatype.org/service/local/staging/deploy/maven2"
-                credentials {
-                    username sonatypeUsername
-                    password sonatypePassword
                 }
             }
         }
@@ -132,12 +100,12 @@ if(hasProperty('sonatypeUsername')) {
 jar {
     if( project.hasProperty( 'env' ) && project.properties[ 'env' ] == 'prod' ) {
         println('**==----< Prod build >----==**')
-        archivesBaseName = baseName
+        archivesBaseName = appName
         println("base: ${archivesBaseName}")
     }
     else {
         println('**==----< Dev build >----==**')
-        archivesBaseName = baseName + '-' + appVersion
+        archivesBaseName = appName + '-' + appVersion
         println("base: ${archivesBaseName}")
     }
 }
@@ -162,10 +130,6 @@ dependencies {
 
     // type check annotations
     compile 'edu.washington.cs.types.checker:checker-framework:1.7.5'
-
-//    compile( 'com.github.rholder:guava-retrying:2.0.0' ) {
-//        exclude group: 'com.google.guava', module: 'guava'
-//    }
 
     // test dependencies
     testCompile 'junit:junit:4.12'

@@ -2,6 +2,15 @@
 
 The `Result` class provides a functional approach for managing results from calls that may fail.
 
+## maven central
+```xml
+<dependency>
+  <groupId>com.tiggee.commons</groupId>
+  <artifactId>result</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
+
 ## intro and motivation
 
 For example, given
