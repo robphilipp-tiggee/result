@@ -1,4 +1,4 @@
-[!https://travis-ci.com/tiggee-tech/result.svg?branch=master]
+![image](https://travis-ci.com/tiggee-tech/result.svg?branch=master)
 
 # result<t>
 

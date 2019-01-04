@@ -4,7 +4,7 @@ apply plugin: 'idea'
 apply plugin: 'maven'
 apply plugin: 'signing'
 
-def langLevel = 10
+def langLevel = 8
 sourceCompatibility = langLevel
 targetCompatibility = langLevel
 
@@ -15,7 +15,7 @@ repositories {
 
 group 'com.tiggee.commons'
 def appName = 'result'
-def appVersion = '0.1.1-snapshot'
+def appVersion = '0.2.0'
 
 task sourceJar(type: Jar) {
     classifier = "sources"
@@ -138,3 +138,6 @@ dependencies {
     testCompile 'org.mockito:mockito-core:2.8.9'
 }
 
+task wrapper(type: Wrapper) {
+    gradleVersion='5.0'
+}
