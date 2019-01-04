@@ -4,7 +4,7 @@ apply plugin: 'idea'
 apply plugin: 'maven'
 apply plugin: 'signing'
 
-def langLevel = 8
+def langLevel = 11
 sourceCompatibility = langLevel
 targetCompatibility = langLevel
 
