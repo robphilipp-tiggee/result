@@ -1,3 +1,5 @@
+[!https://travis-ci.com/tiggee-tech/result.svg?branch=master]
+
 # result<t>
 
 The `Result` class provides a functional approach for managing results from calls that may fail.
